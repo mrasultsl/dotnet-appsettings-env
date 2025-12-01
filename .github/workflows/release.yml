@@ -5,7 +5,12 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
-
+ 
+# Grant the minimum permissions required for goreleaser to create releases and upload artifacts
+permissions:
+  contents: write
+  packages: write
+  actions: read
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -22,6 +27,10 @@ jobs:
         uses: goreleaser/goreleaser-action@v4
         with:
           version: latest
-          args: release --rm-dist
+          # use plain `release` to be compatible across GoReleaser versions
+          args: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cleanup dist (optional)
+        if: always()
+        run: rm -rf dist || true
