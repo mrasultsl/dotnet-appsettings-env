@@ -138,7 +138,7 @@ func processFile(filename, sep string) (map[string]string, error) {
 			col := offset - prev
 
 			snippet := content[before:after]
-			return nil, fmt.Errorf("syntax error: %v in %s (line %d, column %d)\n... %s ...", synErr, filename, line, col, snippet)
+			return nil, fmt.Errorf("syntax error: %v in %s (line %d, column %d) ... %s ...", synErr, filename, line, col, snippet)
 		}
 		return nil, fmt.Errorf("failed to decode JSON: %w", err)
 	}
@@ -181,27 +181,23 @@ func removeJSONComments(content []byte) []byte {
 	escapeNext := false
 	inLineComment := false
 	inBlockComment := false
-	i := 0
 
-	for i < len(content) {
+	for i := 0; i < len(content); i++ {
 		ch := content[i]
 
 		if inString {
 			buf.WriteByte(ch)
 			if escapeNext {
 				escapeNext = false
-				i++
 				continue
 			}
 			if ch == '\\' {
 				escapeNext = true
-				i++
 				continue
 			}
 			if ch == '"' {
 				inString = false
 			}
-			i++
 			continue
 		}
 
@@ -210,41 +206,37 @@ func removeJSONComments(content []byte) []byte {
 				inLineComment = false
 				buf.WriteByte(ch)
 			}
-			i++
 			continue
 		}
 
 		if inBlockComment {
 			if ch == '*' && i+1 < len(content) && content[i+1] == '/' {
 				inBlockComment = false
-				i += 2
+				i++
 				continue
 			}
-			i++
 			continue
 		}
 
 		if ch == '"' {
 			inString = true
 			buf.WriteByte(ch)
-			i++
 			continue
 		}
 
 		if ch == '/' && i+1 < len(content) && content[i+1] == '/' {
 			inLineComment = true
-			i += 2
+			i++
 			continue
 		}
 
 		if ch == '/' && i+1 < len(content) && content[i+1] == '*' {
 			inBlockComment = true
-			i += 2
+			i++
 			continue
 		}
 
 		buf.WriteByte(ch)
-		i++
 	}
 
 	return buf.Bytes()
