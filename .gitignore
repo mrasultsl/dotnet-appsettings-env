@@ -1,3 +1,37 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, coverage
+*.test
+coverage.out
+
+# Output of the go coverage tool
+*.out
+
+# Vendor dir
+vendor/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+__pycache__/
+
+# macOS
+.DS_Store
+
+# Build artifacts
+oryxBuildBinary
+test-build
+
+# Local env files
+.env
+.env.local
 # macOS
 .DS_Store
 ._*
@@ -46,3 +80,6 @@ __debug_bin
 
 # Keep
 !.keep
+
+dotnet-appsettings-env
+appsettings*.json
