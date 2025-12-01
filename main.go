@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -71,9 +72,7 @@ func main() {
 			hadErr = true
 			continue
 		}
-		for k, v := range m {
-			variables[k] = v
-		}
+		maps.Copy(variables, m)
 	}
 
 	if hadErr {
@@ -119,14 +118,8 @@ func processFile(filename, sep string) (map[string]string, error) {
 		// Provide contextual error for syntax errors
 		var synErr *json.SyntaxError
 		if errors.As(err, &synErr) {
-			offset := int(synErr.Offset)
-			if offset < 0 {
-				offset = 0
-			}
-			before := offset - 60
-			if before < 0 {
-				before = 0
-			}
+			offset := max(int(synErr.Offset), 0)
+			before := max(offset-60, 0)
 			after := offset + 60
 			if after > len(content) {
 				after = len(content)
@@ -138,7 +131,7 @@ func processFile(filename, sep string) (map[string]string, error) {
 			col := offset - prev
 
 			snippet := content[before:after]
-			return nil, fmt.Errorf("syntax error: %v in %s (line %d, column %d) ... %s ...", synErr, filename, line, col, snippet)
+			return nil, fmt.Errorf("syntax error: %v in %s (line %d, column %d) ... %s", synErr, filename, line, col, snippet)
 		}
 		return nil, fmt.Errorf("failed to decode JSON: %w", err)
 	}
