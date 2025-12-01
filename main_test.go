@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -87,5 +89,103 @@ func TestProcessFileSyntaxError(t *testing.T) {
 
 	if _, err := processFile(fn, "__"); err == nil {
 		t.Fatalf("expected syntax error, got nil")
+	}
+}
+
+func TestRemoveJSONComments_BOMAndEscaping(t *testing.T) {
+	// Write a file that starts with a BOM and contains escaped quotes and comment-like sequences inside strings
+	src := append([]byte{0xEF, 0xBB, 0xBF}, []byte(`{
+  "path": "C:\\Program Files\\App\"Name\"",
+  "url": "http://example.com//not-a-comment",
+  "note": "this is /* not a comment */ still text"
+}`)...)
+
+	dir := t.TempDir()
+	fn := filepath.Join(dir, "bom.json")
+	if err := os.WriteFile(fn, src, 0o644); err != nil {
+		t.Fatalf("write bom file: %v", err)
+	}
+
+	vars, err := processFile(fn, "__")
+	if err != nil {
+		t.Fatalf("processFile failed on BOM file: %v", err)
+	}
+
+	if vars["url"] != "http://example.com//not-a-comment" {
+		t.Fatalf("url changed: %v", vars["url"])
+	}
+
+	if vars["note"] != "this is /* not a comment */ still text" {
+		t.Fatalf("note changed: %v", vars["note"])
+	}
+}
+
+func TestProcessFile_LargeNestedJSON(t *testing.T) {
+	// Build a deep nested object programmatically
+	depth := 150
+	root := make(map[string]any)
+	cur := root
+	var keys []string
+	for i := 0; i < depth; i++ {
+		k := fmt.Sprintf("k%d", i)
+		keys = append(keys, k)
+		next := make(map[string]any)
+		cur[k] = next
+		cur = next
+	}
+	// set final value
+	cur["leaf"] = "deep-value"
+
+	// marshal to JSON
+	b, err := json.Marshal(root)
+	if err != nil {
+		t.Fatalf("marshal nested: %v", err)
+	}
+
+	// write to temp file
+	dir := t.TempDir()
+	fn := filepath.Join(dir, "deep.json")
+	if err := os.WriteFile(fn, b, 0o644); err != nil {
+		t.Fatalf("write deep file: %v", err)
+	}
+
+	vars, err := processFile(fn, "__")
+	if err != nil {
+		t.Fatalf("processFile deep failed: %v", err)
+	}
+
+	// build expected key
+	expectedKey := ""
+	for i, k := range keys {
+		if i == 0 {
+			expectedKey = k
+			continue
+		}
+		expectedKey = expectedKey + "__" + k
+	}
+	expectedKey = expectedKey + "__leaf"
+
+	v, ok := vars[expectedKey]
+	if !ok {
+		t.Fatalf("missing deep key %q", expectedKey)
+	}
+	if v != "deep-value" {
+		t.Fatalf("deep value mismatch: %q", v)
+	}
+}
+
+func TestRemoveJSONComments_CommentLikeInString(t *testing.T) {
+	src := []byte(`{"text":"contains // and /* not a comment */ and \\\"quotes\\\""}`)
+	cleaned := removeJSONComments(src)
+	var out map[string]any
+	if err := json.Unmarshal(cleaned, &out); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	s, _ := out["text"].(string)
+	if !strings.Contains(s, "//") || !strings.Contains(s, "/*") {
+		t.Fatalf("string lost comment-like sequences: %q", s)
+	}
+	if !strings.Contains(s, "quotes") || !strings.Contains(s, `"`) {
+		t.Fatalf("escaped quotes missing or lost: %q", s)
 	}
 }

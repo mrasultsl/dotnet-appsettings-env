@@ -311,3 +311,16 @@ value: 'File'
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/dassump/dotnet-appsettings-env.
+
+## Continuous Integration
+
+This repository includes a GitHub Actions workflow that runs on push and pull requests to `main`.
+The workflow performs a formatting check (`gofmt -l .`), runs `go vet ./...`, and executes `go test ./...`.
+
+To run tests locally:
+
+```sh
+gofmt -w .
+go vet ./...
+go test ./... -v
+```
